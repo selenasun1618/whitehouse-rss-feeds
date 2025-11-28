@@ -194,8 +194,8 @@ def generate_rss(entries: list[dict], output_path: str) -> None:
         url=CONFIG['logo_url'],
         title=CONFIG['logo_title'],
         link=CONFIG['logo_link'],
-        width=CONFIG['logo_width'],
-        height=CONFIG['logo_height']
+        width=str(CONFIG['logo_width']),
+        height=str(CONFIG['logo_height'])
     )
     
     for entry in entries:
