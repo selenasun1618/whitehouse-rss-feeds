@@ -2,7 +2,7 @@
 
 Scrapes https://www.whitehouse.gov/briefings-statements/ and generates a valid RSS 2.0 feed.
 
-Subscribe to RSS feed: https://selenasun1618.github.io/whitehouse-rss-feeds/whitehouse_briefings.xml
+Subscribe to RSS feed: `https://selenasun1618.github.io/whitehouse-rss-feeds/whitehouse_briefings.xml`
 
 ## Installation
 
