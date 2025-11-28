@@ -34,7 +34,14 @@ CONFIG = {
     'output_file': 'whitehouse_briefings.xml',
     'feed_title': 'White House Briefings & Statements',
     'feed_description': 'Official Briefings and Statements from the White House',
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    # Logo configuration - update with your GitHub repo URL
+    # Format: https://raw.githubusercontent.com/USERNAME/REPO/BRANCH/logo-filename
+    'logo_url': 'https://raw.githubusercontent.com/selenasun1618/whitehouse-rss-feeds/main/whitehouse-47-logo.webp',
+    'logo_title': 'White House Briefings & Statements',
+    'logo_link': 'https://www.whitehouse.gov/briefings-statements/',
+    'logo_width': 144,  # RSS 2.0 max width
+    'logo_height': 144  # Adjust based on your logo aspect ratio
 }
 
 
@@ -88,12 +95,17 @@ def extract_entries(html: str) -> list[dict]:
         
         # We want individual briefing pages, not the archive page itself
         # Pattern: /briefings-statements/some-slug/
-        if '/briefings-statements/' in href and href != '/briefings-statements/':
+        if '/briefings-statements/' in href:
             # Normalize URL
             if href.startswith('/'):
                 full_url = CONFIG['base_url'] + href
             else:
                 full_url = href
+            
+            # Skip the main briefings-statements page (with or without trailing slash)
+            base_briefings_url = CONFIG['base_url'] + '/briefings-statements'
+            if full_url.rstrip('/') == base_briefings_url.rstrip('/'):
+                continue
             
             # Skip if we've seen this URL
             if full_url in seen_urls:
@@ -103,8 +115,15 @@ def extract_entries(html: str) -> list[dict]:
             if '/page/' in href:
                 continue
                 
-            # Get title text
+            # Get title text early to filter out unwanted entries
             title = link.get_text(strip=True)
+            
+            # Skip "Briefings & Statements" or "Briefings and Statements" title FIRST
+            # This catches the main page link regardless of URL format
+            title_lower = title.lower().strip()
+            if title_lower in ['briefings & statements', 'briefings and statements', 
+                              'briefings &amp; statements', 'briefings&amp;statements']:
+                continue
             
             # Skip empty titles or very short ones (likely not articles)
             if not title or len(title) < 10:
@@ -113,6 +132,11 @@ def extract_entries(html: str) -> list[dict]:
             # Skip if title looks like navigation
             nav_words = ['next', 'previous', 'older', 'newer', 'page', '»', '«']
             if any(word in title.lower() for word in nav_words):
+                continue
+            
+            # Also skip if URL is the base page (double check)
+            if full_url.rstrip('/') in [CONFIG['base_url'] + '/briefings-statements', 
+                                       CONFIG['base_url'] + '/briefings-statements/']:
                 continue
             
             seen_urls.add(full_url)
@@ -164,6 +188,15 @@ def generate_rss(entries: list[dict], output_path: str) -> None:
     fg.description(CONFIG['feed_description'])
     fg.language('en')
     fg.lastBuildDate(datetime.now(timezone.utc))
+    
+    # Add logo/image to the feed
+    fg.image(
+        url=CONFIG['logo_url'],
+        title=CONFIG['logo_title'],
+        link=CONFIG['logo_link'],
+        width=CONFIG['logo_width'],
+        height=CONFIG['logo_height']
+    )
     
     for entry in entries:
         fe = fg.add_entry()
