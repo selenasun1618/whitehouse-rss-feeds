@@ -77,6 +77,73 @@ def fetch_page(url: str) -> str:
     return response.text
 
 
+def extract_article_content(url: str) -> str:
+    """Fetch and extract the full text content from an article page."""
+    try:
+        html = fetch_page(url)
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Try to find the main content area
+        # Common patterns for White House article content
+        content_selectors = [
+            'article',
+            '.entry-content',
+            '.post-content',
+            '.content',
+            'main',
+            '[role="main"]',
+            '.briefing-content',
+            '.statement-content'
+        ]
+        
+        content = None
+        for selector in content_selectors:
+            content = soup.select_one(selector)
+            if content:
+                break
+        
+        # If no specific content area found, try to find paragraphs in the main area
+        if not content:
+            # Look for the main content by finding the largest text block
+            main = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'content|entry|post', re.I))
+            if main:
+                content = main
+        
+        if content:
+            # Remove script and style elements
+            for script in content(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+                script.decompose()
+            
+            # Get all paragraphs
+            paragraphs = content.find_all(['p', 'div'])
+            text_parts = []
+            
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text and len(text) > 20:  # Only include substantial paragraphs
+                    text_parts.append(text)
+            
+            if text_parts:
+                return '\n\n'.join(text_parts)
+        
+        # Fallback: get all paragraph text from body
+        body = soup.find('body')
+        if body:
+            for script in body(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+                script.decompose()
+            paragraphs = body.find_all('p')
+            text_parts = [p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True) and len(p.get_text(strip=True)) > 20]
+            if text_parts:
+                return '\n\n'.join(text_parts)
+        
+        logger.warning(f"Could not extract content from {url}")
+        return ""
+        
+    except Exception as e:
+        logger.error(f"Error extracting content from {url}: {e}")
+        return ""
+
+
 def extract_entries(html: str) -> list[dict]:
     """Extract briefing entries from the HTML."""
     soup = BeautifulSoup(html, 'html.parser')
@@ -168,7 +235,8 @@ def extract_entries(html: str) -> list[dict]:
                 'title': title,
                 'url': full_url,
                 'date': parse_date(date_str) if date_str else datetime.now(timezone.utc),
-                'date_str': date_str or 'Unknown'
+                'date_str': date_str or 'Unknown',
+                'content': None  # Will be fetched later
             }
             entries.append(entry)
             logger.info(f"Found: {title[:60]}... ({entry['date_str']})")
@@ -204,7 +272,17 @@ def generate_rss(entries: list[dict], output_path: str) -> None:
         fe.link(href=entry['url'])
         fe.guid(entry['url'], permalink=True)
         fe.pubDate(entry['date'])
-        fe.description(f"White House Briefing/Statement: {entry['title']}")
+        
+        # Use full content if available, otherwise fall back to title
+        if entry.get('content') and entry['content'].strip():
+            # Clean up the content and limit length for RSS (some readers have limits)
+            content = entry['content'].strip()
+            # Limit to ~5000 characters to avoid issues with RSS readers
+            if len(content) > 5000:
+                content = content[:5000] + "..."
+            fe.description(content)
+        else:
+            fe.description(f"White House Briefing/Statement: {entry['title']}")
     
     # Write RSS file
     fg.rss_file(output_path, pretty=True)
@@ -222,7 +300,17 @@ def main():
         entries = extract_entries(html)
         logger.info(f"Found {len(entries)} entries")
         
+        # Fetch full content for each entry
         if entries:
+            logger.info("Fetching article content...")
+            for i, entry in enumerate(entries, 1):
+                logger.info(f"Fetching content for entry {i}/{len(entries)}: {entry['title'][:50]}...")
+                entry['content'] = extract_article_content(entry['url'])
+                if entry['content']:
+                    logger.info(f"  Extracted {len(entry['content'])} characters")
+                else:
+                    logger.warning(f"  No content extracted")
+            
             generate_rss(entries, CONFIG['output_file'])
             logger.info("Done!")
         else:
