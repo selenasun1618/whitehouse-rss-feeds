@@ -1,4 +1,4 @@
-# rss-feeds
+# White House RSS Feeds
 
 White House Briefings & Statements RSS Feed Generator
 
