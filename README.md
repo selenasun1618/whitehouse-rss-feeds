@@ -4,24 +4,16 @@ Scrapes https://www.whitehouse.gov/briefings-statements/ and generates a valid R
 
 Subscribe to RSS feed: `https://selenasun1618.github.io/whitehouse-rss-feeds/whitehouse_briefings.xml`
 
-## Installation
+## To run the scraper yourself:
 
-Install the required dependencies:
+1. Install the required dependencies:
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-## Usage
-
-Run the scraper:
-
-Or with Python 3:
+2. Run the scraper:
 
 ```bash
 python3 whitehouse_rss_scraper.py
 ```
-
-## Output
-
-The script will create `whitehouse_briefings.xml` in the current directory containing the RSS feed.
